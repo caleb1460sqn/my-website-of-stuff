@@ -1,0 +1,380 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>My Website</title>
+
+<style>
+html {
+    background-color: #050508;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+}
+
+h2, p {
+    margin: 10px;
+}
+
+/* Navigation bar */
+ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    background-color: #333;
+    display: flex;
+    position: relative;
+    z-index: 2;
+}
+
+ul li a {
+    display: block;
+    color: white;
+    padding: 14px 16px;
+    text-decoration: none;
+}
+
+ul li a:hover {
+    background-color: #111;
+}
+
+/* Permanent tunnel background */
+#global-bg-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: -1;
+    pointer-events: none;
+}
+
+/* Loading overlay */
+#loader-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(5, 5, 8, 0.65);
+    justify-content: center;
+    align-items: center;
+}
+
+.loader-content {
+    text-align: center;
+    color: white;
+}
+
+#mini-hypnotic-loader {
+    width: 340px;
+    max-width: 90vw;
+    height: 200px;
+    display: block;
+    margin: auto;
+}
+
+.loader-content p {
+    font-size: 14px;
+    color: white;
+}
+
+/* Test button */
+.test-button {
+    padding: 12px 24px;
+    background: #333;
+    color: white;
+    border: 1px solid #888;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.test-button:hover {
+    background: #555;
+}
+</style>
+</head>
+
+<body>
+
+<!-- Navigation bar -->
+<ul>
+    <li><a href="mini-games.html" onclick="delayNavigation(event, this)">websites we are partered with </a></li>
+    <li><a href="#news" onclick="delayNavigation(event, this)">News</a></li>
+    <li><a href="#contact" onclick="delayNavigation(event, this)">Contact</a></li>
+    <li><a href="#about" onclick="delayNavigation(event, this)">About</a></li>
+</ul>
+
+<!-- Permanent tunnel -->
+<canvas id="global-bg-canvas"></canvas>
+
+<script>
+(function () {
+    const canvas = document.getElementById('global-bg-canvas');
+    const ctx = canvas.getContext('2d');
+
+    let width, height, centerX, centerY, maxRadius;
+    let isPaused = false;
+    let running = false;
+
+    function resize() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+        width = window.innerWidth;
+        height = window.innerHeight;
+
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        centerX = width / 2;
+        centerY = height / 2;
+        maxRadius = Math.hypot(centerX, centerY);
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+
+    document.addEventListener('visibilitychange', () => {
+        isPaused = document.hidden;
+
+        if (!isPaused) {
+            startTunnel();
+        }
+    });
+
+    const prefersReducedMotion =
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const baseHue = Math.floor(Math.random() * 360);
+    const sides = Math.floor(Math.random() * 5) + 5;
+    const layerCount = 40;
+    const twistStrength = (Math.random() * 0.08) + 0.04;
+    const speed = prefersReducedMotion ? 0.002 : 0.012;
+
+    let time = 0;
+
+    function drawPolygon(x, y, radius, sides, rotation) {
+        ctx.beginPath();
+
+        for (let i = 0; i < sides; i++) {
+            const angle = rotation + (i * Math.PI * 2) / sides;
+            const px = x + Math.cos(angle) * radius;
+            const py = y + Math.sin(angle) * radius;
+
+            if (i === 0) {
+                ctx.moveTo(px, py);
+            } else {
+                ctx.lineTo(px, py);
+            }
+        }
+
+        ctx.closePath();
+        ctx.stroke();
+    }
+
+    function animate() {
+        if (isPaused) {
+            running = false;
+            return;
+        }
+
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = 'rgba(5, 5, 10, 0.2)';
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.globalCompositeOperation = 'lighter';
+
+        for (let i = 0; i < layerCount; i++) {
+            const rawProgress =
+                (i / layerCount + time * 0.25) % 1;
+
+            const depth = Math.pow(rawProgress, 2.4);
+            const radius = depth * maxRadius;
+
+            if (radius < 2) continue;
+
+            const wave = Math.sin(time * 2 - rawProgress * 8);
+
+            const rotation =
+                time * 0.6 +
+                rawProgress * Math.PI * 2 +
+                wave * twistStrength;
+
+            const alpha = Math.sin(rawProgress * Math.PI) * 0.5;
+
+            const hue =
+                (baseHue + rawProgress * 140 + time * 25) % 360;
+
+            ctx.strokeStyle =
+                `hsla(${hue}, 85%, 58%, ${alpha})`;
+
+            ctx.lineWidth = 1 + depth * 3;
+
+            drawPolygon(
+                centerX,
+                centerY,
+                radius,
+                sides,
+                rotation
+            );
+
+            ctx.strokeStyle =
+                `hsla(${(hue + 60) % 360}, 80%, 55%, ${alpha * 0.45})`;
+
+            drawPolygon(
+                centerX,
+                centerY,
+                radius * 0.85,
+                sides,
+                -rotation * 0.7
+            );
+        }
+
+        time += speed;
+
+        requestAnimationFrame(animate);
+    }
+
+    function startTunnel() {
+        if (running || isPaused) return;
+
+        running = true;
+        animate();
+    }
+
+    startTunnel();
+})();
+</script>
+
+<!-- Loading overlay -->
+<div id="loader-overlay">
+    <div class="loader-content">
+        <canvas id="mini-hypnotic-loader"></canvas>
+        <p>Loading...</p>
+    </div>
+</div>
+
+<script>
+let loadingAnimationFrame = null;
+let loadingTime = 0;
+let navigationTimer = null;
+
+function showLoading() {
+    const overlay = document.getElementById("loader-overlay");
+    const canvas = document.getElementById("mini-hypnotic-loader");
+
+    overlay.style.display = "flex";
+
+    if (loadingAnimationFrame !== null) return;
+
+    const ctx = canvas.getContext("2d");
+
+    const width = 340;
+    const height = 200;
+
+    canvas.width = width;
+    canvas.height = height;
+
+    const dotCount = 42;
+    const baseHue = Math.floor(Math.random() * 360);
+
+    const prefersReducedMotion =
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const speed = prefersReducedMotion ? 0.004 : 0.016;
+
+    function animate() {
+        if (overlay.style.display === "none") {
+            loadingAnimationFrame = null;
+            return;
+        }
+
+        ctx.clearRect(0, 0, width, height);
+
+        const spacing = width / (dotCount + 1);
+        const centerY = height / 2;
+        const maxSwing = height * 0.34;
+
+        for (let i = 0; i < dotCount; i++) {
+            const x = spacing * (i + 1);
+
+            const frequency = 1 + i * 0.045;
+            const phase = loadingTime * frequency;
+
+            const y =
+                centerY + Math.sin(phase) * maxSwing;
+
+            const depth = Math.cos(phase);
+
+            const radius = 5 + (depth + 1) * 3.5;
+
+            const hue =
+                (baseHue + i * 4.5 + loadingTime * 10) % 360;
+
+            const alpha = 0.35 + (depth + 1) * 0.3;
+
+            // Outer glow
+            ctx.beginPath();
+            ctx.arc(x, y, radius * 2.2, 0, Math.PI * 2);
+
+            ctx.fillStyle =
+                `hsla(${hue}, 85%, 60%, ${alpha * 0.18})`;
+
+            ctx.fill();
+
+            // Main dot
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+
+            ctx.fillStyle =
+                `hsla(${hue}, 90%, 68%, ${alpha})`;
+
+            ctx.fill();
+        }
+
+        loadingTime += speed;
+
+        loadingAnimationFrame = requestAnimationFrame(animate);
+    }
+
+    animate();
+}
+
+function hideLoading() {
+    document.getElementById("loader-overlay").style.display = "none";
+
+    if (loadingAnimationFrame !== null) {
+        cancelAnimationFrame(loadingAnimationFrame);
+        loadingAnimationFrame = null;
+    }
+}
+
+/* Delay navigation by 5 seconds */
+function delayNavigation(event, link) {
+    event.preventDefault();
+
+    if (navigationTimer !== null) return;
+
+    const destination = link.href;
+
+    showLoading();
+
+    navigationTimer = setTimeout(() => {
+        navigationTimer = null;
+        hideLoading();
+
+        window.location.href = destination;
+    }, 5000);
+}
+
+
+</script>
+
+
+</body>
+</html>
